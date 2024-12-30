@@ -1,0 +1,1536 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Latest compiled and minified CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/css/bootstrap.min.css">
+
+    <!-- jQuery library -->
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.slim.min.js"></script>
+
+    <!-- Popper JS -->
+    <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.1/dist/umd/popper.min.js"></script>
+
+    <!-- Latest compiled JavaScript -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/js/bootstrap.bundle.min.js"></script>
+    <title>Excel 파일 읽기</title>
+    <style>
+        body {
+            margin: 0;
+            position: relative;
+        }
+
+        #map {
+            height: 80vh;
+            margin-top: 10px;
+            /* 윗부분을 50px만큼 자름 */
+        }
+
+        .button-container {
+            position: absolute;
+            top: 180px;
+            right: 15px;
+            z-index: 1000;
+        }
+
+        .button {
+            cursor: pointer;
+            padding: 5px 10px;
+            border-radius: 3px;
+        }
+
+        .button.active {
+            background-color: #007bff;
+            color: #fff;
+        }
+
+        .button.disabled {
+            background-color: #ccc;
+            color: #fff;
+        }
+
+
+        .room-struct-container {
+            position: absolute;
+            top: 180px;
+            right: 400px;
+            z-index: 1000;
+        }
+
+
+        .room-count-container {
+            position: absolute;
+            top: 180px;
+            right: 350px;
+            z-index: 1000;
+        }
+
+        .year-container {
+            position: absolute;
+            top: 180px;
+            right: 115px;
+            z-index: 1000;
+        }
+
+        .households-container {
+            position: absolute;
+            top: 180px;
+            right: 210px;
+            z-index: 1000;
+        }
+
+        #resetButton {
+            background-color: #000;
+            color: #fff;
+        }
+
+        #toggleInfoWindowsBtn {
+            background-color: green;
+            color: #fff;
+        }
+
+        #searchButton,
+        #areaSearch {
+            background-color: gray;
+            color: #fff;
+        }
+
+        .infowindow-content {
+            font-family: 'Arial', sans-serif;
+            width: 5000px;
+            /* 원하는 가로 크기(px) */
+            height: 150px;
+            /* 원하는 세로 크기(px) */
+            overflow: auto;
+            /* 내용이 넘칠 경우 스크롤 생성 */
+            /* 여기에 원하는 한글 폰트명을 넣어주세요 */
+        }
+
+        #toggleMarker {
+            background-color: #A0D9E2;
+            color: #fff;
+        }
+
+        .layerPopup {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+            margin: -30px 0 0 -30px;
+        }
+
+        .spinner {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            border: 8px solid #f3f3f3;
+            /* Light grey */
+            border-top: 8px solid black;
+            border-radius: 50%;
+            width: 60px;
+            height: 60px;
+            animation: spinner 2s linear infinite;
+        }
+
+        @keyframes spinner {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div id="filterArea" class="mt-3"
+        style="border: 1.5px solid gray; background-color: #EBF7FF; box-shadow:2px 3px 3px 0px;  border-radius: 10px; padding: 10px 0px;">
+        <div class="window-container row mb-2" style="height: auto;">
+            <div class="col-xl-3">
+                <div class="row" style="width:100%;">
+                    <div class="col-xl-5 mt-2 ml-4" for="regionFilter" style="white-space:nowrap;"><b>지역 필터(쉼표로 구분)</b>
+                    </div>
+                    <input class="form-control col-xl-6" style="text-align: left;" type="text" id="regionFilter"
+                        placeholder="예: 강남구,동작구,동대문구">
+                    <!-- 검색 버튼으로 통일 <button id="areaSearch" class="form-control col-xl-2" onclick="applyRegionFilter()">적용</button>-->
+                </div>
+            </div>
+            <div class="col-xl-3">
+                <div class="row" style="width:100%; text-align: left;">
+                    <div class="col-xl-2 mt-2 ml-4" for="regionFilter" style="white-space:nowrap;"><b>변동률</b></div>
+                    <select class="form-control col-xl-3" id="sale_change_rate_result">
+                        <option value="">매매가 변동률</option>
+                        <option value="상승">상승</option>
+                        <option value="보합">보합</option>
+                        <option value="하락">하락</option>
+                    </select>
+                    <select class="form-control col-xl-3" id="j_change_rate_result">
+                        <option value="">전세가 변동률</option>
+                        <option value="상승">상승</option>
+                        <option value="보합">보합</option>
+                        <option value="하락">하락</option>
+                    </select>
+                    <select class="form-control col-xl-3" id="investment_change_rate_result">
+                        <option value="">투자금 변동률</option>
+                        <option value="상승">상승</option>
+                        <option value="보합">보합</option>
+                        <option value="하락">하락</option>
+                    </select>
+                </div>
+            </div>
+            <div class="col-xl-3">
+                <div class="row">
+                    <div class="col-xl-2 mt-2 ml-4" for="sizeType" style="white-space:nowrap;"><b>평수유형</b></div>
+                    <select class="form-control col-xl-2" id="sizeType">
+                        <option value="공급평수">공급평수</option>
+                        <option value="전용평수">전용평수</option>
+                    </select>
+                    <input class="form-control col-xl-3" type="number" id="minSize" placeholder="최소 평수">
+                    <input class="form-control col-xl-3" type="number" id="maxSize" placeholder="최대 평수">
+                </div>
+            </div>
+            <div class="col-xl-3" style="text-align: right;">
+                <div class="input-group mb-3">
+                    <input type="file" class="form-control" id="fileInput" accept=".xlsx, .xls">
+                    <label class="input-group-text mr-3" for="fileInput">Upload</label>
+                </div>
+            </div>
+        </div>
+
+        <div class="row ml-2">
+            <div class="year-filter-container col-xl-1">
+                <label for="yearType" ><b>연식</b></label>
+                <input class="form-control" type="number" id="minYear" placeholder="최소" style="height: 25px;" />
+                <input class="form-control" type="number" id="maxYear" placeholder="최대" style="height: 25px;"/>
+            </div>
+
+            <div class="households-filter-container col-xl-1">
+                <label for="householdsType"><b>총세대수</b></label>
+                <input class="form-control" type="number" id="minHouseholds" placeholder="최소" style="height: 25px;">
+                <input class="form-control" type="number" id="maxHouseholds" placeholder="최대" style="height: 25px;">
+            </div>
+            
+            <div class="price-filter-container col-xl-1">
+                <label for="priceType"><b>하락률</b></label>
+                <input class="form-control" type="number" id="mindropprice" placeholder="최소" style="height: 25px;">
+                <input class="form-control" type="number" id="maxdropprice" placeholder="최대" style="height: 25px;">
+            </div>
+
+
+            <div class="price-filter-container col-xl-1">
+                <label for="priceType"><b>교통</b></label>
+                <input class="form-control" type="number" id="minbus" placeholder="최소(분)" style="height: 25px;">
+                <input class="form-control" type="number" id="maxbus" placeholder="최대(분)" style="height: 25px;">
+            
+            </div>
+
+
+            <div class="price-filter-container col-xl-1">
+                <label for="priceType"><b>학교</b></label>
+                <input class="form-control" type="number" id="minschool" placeholder="최소" style="height: 25px;">
+                <input class="form-control" type="number" id="maxschool" placeholder="최대" style="height: 25px;">
+            
+            </div>
+
+
+            <div class="price-filter-container col-xl-1">
+                <label for="priceType"><b>전세가율</b></label>
+                <input class="form-control" type="number" id="minjs" placeholder="최소" style="height: 25px;">
+                <input class="form-control" type="number" id="maxjs" placeholder="최대" style="height: 25px;">
+            
+            </div>
+
+
+
+
+            <div class="price-filter-container col-xl-1">
+                <label for="priceType" ><b>매매가격</b></label>
+                <input class="form-control" type="number" id="minSalePrice" placeholder="최소" style="height: 25px;">
+                <input class="form-control" type="number" id="maxSalePrice" placeholder="최대" style="height: 25px;">
+            
+            </div>
+            <div class="price-filter-container col-xl-1">
+                <label for="priceType"><b>전세가격</b></label>
+                <input class="form-control" type="number" id="minJeonsaePrice" placeholder="최소" style="height: 25px;">
+                <input class="form-control" type="number" id="maxJeonsaePrice" placeholder="최대" style="height: 25px;">
+            
+            </div>
+            <div class="price-filter-container col-xl-1">
+                <label for="priceType"><b>투자금</b></label>
+                <input class="form-control" type="number" id="minInvestmentPrice" placeholder="최소" style="height: 25px;">
+                <input class="form-control" type="number" id="maxInvestmentPrice" placeholder="최대" style="height: 25px;">
+            
+            </div>
+
+            <div class="col-xl-3" style="vertical-align: bottom; text-align: left; padding:5px;">
+                <button class="form-control mt-4" id="toggleDisabled"
+                    style="width: 15%; display: inline-block; white-space:nowrap;" action="OFF"
+                    onclick="toggleDisabled()">토글</button>
+                <button class="form-control mt-4" id="toggleMarker"
+                    style="width: 15%; display: inline-block; white-space:nowrap;" action="OFF"
+                    onclick="toggleAllMarker()">마커</button>
+                <button class="form-control mt-4" id="toggleInfoWindowsBtn"
+                    style="width: 15%; display: inline-block; white-space:nowrap;"
+                    onclick="toggleAllInfoWindows()">정보</button>
+                <button id="resetButton" class="form-control"
+                    style="display: inline-block; width:25%; white-space:nowrap;" onclick="resetMarkers()">초기화</button>
+                <button id="searchButton" class="form-control"
+                    style="display: inline-block; width:20%; white-space:nowrap;" onclick="searchMarkers()">검색</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="toggleBtnArea">
+        <div class="button-container">
+            <div class="button active sizeFilter" type="10미만" id="btn10미만" onclick="toggleMarkers('10미만')">10평 미만</div>
+            <div class="button active sizeFilter" type="10" id="btn10" onclick="toggleMarkers('10')">10~15평</div>
+            <div class="button active sizeFilter" type="15" id="btn15" onclick="toggleMarkers('15')">15~23평</div>
+            <div class="button active sizeFilter" type="20" id="btn20" onclick="toggleMarkers('20')">23~28평</div>
+            <div class="button active sizeFilter" type="28" id="btn28" onclick="toggleMarkers('28')">28~30평</div>
+            <div class="button active sizeFilter" type="30" id="btn30" onclick="toggleMarkers('30')">30~35평</div>
+            <div class="button active sizeFilter" type="35" id="btn35" onclick="toggleMarkers('35')">35~40평</div>
+            <div class="button active sizeFilter" type="40" id="btn40" onclick="toggleMarkers('40')">40~45평</div>
+            <div class="button active sizeFilter" type="40초과" id="btn40초과" onclick="toggleMarkers('40초과')">45평 초과</div>
+
+
+            <div class="button active" id="btnzero" onclick="zeroMarkers('zero')">0원제외</div>
+
+        </div>
+
+        <div class="year-container">
+            <!-- 연식 버튼 -->
+            <div class="button active yearFilter" type="5년" id="btn5년" onclick="toggleMarkersyear('5년')">5년 이하</div>
+            <div class="button active yearFilter" type="10년" id="btn10년" onclick="toggleMarkersyear('10년')">6~10년</div>
+            <div class="button active yearFilter" type="15년" id="btn15년" onclick="toggleMarkersyear('15년')">11~15년</div>
+            <div class="button active yearFilter" type="20년" id="btn20년" onclick="toggleMarkersyear('20년')">16~20년</div>
+            <div class="button active yearFilter" type="25년" id="btn25년" onclick="toggleMarkersyear('25년')">21~25년</div>
+            <div class="button active yearFilter" type="30년" id="btn30년" onclick="toggleMarkersyear('30년')">26~30년</div>
+            <div class="button active yearFilter" type="31년" id="btn31년" onclick="toggleMarkersyear('31년')">30년 초과</div>
+
+
+        </div>
+
+        <div class="room-struct-container">
+            <div class="button active structFilter" type="계단" id="btn계단" onclick="toggleMarkersBystructCount('계단')">계단식
+            </div>
+            <div class="button active structFilter" type="복도" id="btn복도" onclick="toggleMarkersBystructCount('복도')">복도식
+            </div>
+            <div class="button active structFilter" type="복합" id="btn복합" onclick="toggleMarkersBystructCount('복합')">복합식
+            </div>
+        </div>
+
+
+        <div class="room-count-container">
+            <div class="button active roomFilter" type="1" id="btn1" onclick="toggleMarkersByRoomCount('1')">1개</div>
+            <div class="button active roomFilter" type="2" id="btn2" onclick="toggleMarkersByRoomCount('2')">2개</div>
+            <div class="button active roomFilter" type="3" id="btn3" onclick="toggleMarkersByRoomCount('3')">3개</div>
+            <div class="button active roomFilter" type="4" id="btn4" onclick="toggleMarkersByRoomCount('4')">4개</div>
+            <div class="button active roomFilter" type="5" id="btn5" onclick="toggleMarkersByRoomCount('5')">5개</div>
+        </div>
+
+        <div class="households-container">
+            <!-- 세대수 버튼 -->
+            <div class="button active householdsFilter" type="0" id="households_btn_0"
+                onclick="toggleMarkersByHouseholdsCount('0')">100세대 미만</div>
+            <div class="button active householdsFilter" type="100" id="households_btn_100"
+                onclick="toggleMarkersByHouseholdsCount('100')">100 ~ 200세대</div>
+            <div class="button active householdsFilter" type="200" id="households_btn_200"
+                onclick="toggleMarkersByHouseholdsCount('200')">200 ~ 300세대</div>
+            <div class="button active householdsFilter" type="300" id="households_btn_300"
+                onclick="toggleMarkersByHouseholdsCount('300')">300 ~ 500세대</div>
+            <div class="button active householdsFilter" type="500" id="households_btn_500"
+                onclick="toggleMarkersByHouseholdsCount('500')">500 ~ 700세대</div>
+            <div class="button active householdsFilter" type="700" id="households_btn_700"
+                onclick="toggleMarkersByHouseholdsCount('700')">700 ~ 1000세대</div>
+            <div class="button active householdsFilter" type="1000" id="households_btn_1000"
+                onclick="toggleMarkersByHouseholdsCount('1000')">1000 세대 이상</div>
+        </div>
+    </div>
+
+
+    <div id="map"></div>
+
+    </div>
+
+    <div class="layerPopup">
+        <div class="spinner"></div>
+    </div>
+
+
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.16.9/xlsx.full.min.js"></script>
+    <script
+        src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=2ee1f10671ad0f03b5f01bc576987b25&libraries=services,clusterer"></script>
+    <script>
+
+
+
+
+        // 특정 날짜 설정
+        var targetDate = new Date(2044, 5, 2); // 2024년 5월 1일을 목표로 설정, 객체가 0부터 시작하기 때문에 (4가 5월이고 0이 1월이다)
+        // 현재 날짜 가져오기
+        var currentDate = new Date();
+
+        // 현재 날짜가 목표 날짜 이후인지 확인
+        if (currentDate.getTime() > targetDate.getTime()) {
+            // 현재 날짜가 목표 날짜 이후이면 주소 생성 기능을 비활성화
+            alert("기간이 지났습니다. 오픈톡방으로 다시연락주세요 -부동산 JD-");
+        } else {
+            // 각 마커에 대한 이미지를 생성합니다
+            var markerImages = [];
+
+            var markers = [];
+            var cluster_markers = [];
+            var clusterer;
+            var map;
+            var priceFilterEnabled = false;
+            var minPrice = null;
+            var maxPrice = null;
+            var priceType = "매매가격"; // 초기값 설정
+
+            document.getElementById('fileInput').addEventListener('change', function (event) {
+                const file = event.target.files[0];
+                if (!file) return;
+
+                const reader = new FileReader();
+
+                reader.onload = function (e) {
+                    // MAP 초기화
+                    $("#map").empty();
+                    markers = [];
+                    cluster_markers = [];
+
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+                    const jsonData = XLSX.utils.sheet_to_json(sheet);
+                    var now = new Date();	// 현재 날짜 및 시간
+                    var year = now.getFullYear();	// 연도
+
+                    // 데이터 초기화
+                    var latitude = []; // 위도
+                    var longitud = []; // 경도
+                    var apartment_complex_name = []; // 단지명
+                    var apartment_completion_year = []; // 연식
+                    var households_count = []; // 총세대수
+                    var apartment_completion_year_period = []; // 연식기간
+                    var sale_price = []; // 매매가격
+                    var j_price = []; // 전세가격
+                    var investment_amount = []; // 투자금
+                    //var 데이터내용 = [];
+                    var supply_area = []; // 공급평수
+                    var exclusive_area = []; // 전용평수
+                    var room_count = []; // 방수
+                    var room_structure = [];// 방 구조 
+                    var region = []; // 지역
+                    var sale_change_rate = []; // 매매가 변동률
+                    var j_change_rate = []; // 전세가 변동률
+                    var investment_change_rate = []; // 투자금 변동률
+                    var drop_rate = [];
+                    var bus_rate = [];
+                    var school_rate = [];
+                    var js_rate = [];
+                    var high_price = [];
+                    var income_price = [];
+                    var today_year = year + 1; // 기존 2025년으로 하드코딩 되어 있어서 변경
+
+                    // JSON 데이터에서 열을 분석하여 변수에 저장
+                    for (let i = 0; i < jsonData.length; i++) {
+                        region.push(jsonData[i].norec1);
+                        latitude.push(jsonData[i].lat);
+                        longitud.push(jsonData[i].lon);
+                        apartment_complex_name.push(jsonData[i].name);
+                        apartment_completion_year.push(parseInt(jsonData[i].year));
+                        households_count.push(parseInt(jsonData[i].총세대수));
+                        apartment_completion_year_period.push(today_year - parseInt(jsonData[i].year));
+                        sale_price.push(parseInt(jsonData[i].content));
+                        j_price.push(parseInt(jsonData[i].content2));
+                        investment_amount.push(parseInt(jsonData[i].content3));
+                        js_rate.push(jsonData[i].jenseper);
+                        //데이터내용.push(`<div style="background-color: ${getInfowindowColor(parseInt(content * 1, 10)).bgColor}; color: ${getInfowindowColor(parseInt(content * 1, 10)).textColor};">${content}</div>`);
+                        supply_area.push(parseInt(jsonData[i].공급평수));
+                        exclusive_area.push(parseInt(jsonData[i].전용평수));
+                        room_count.push(parseInt(jsonData[i].room));
+                        room_structure.push(jsonData[i].struct);
+                        sale_change_rate.push(jsonData[i].매매가변동률);
+                        j_change_rate.push(jsonData[i].전세가변동률);
+                        investment_change_rate.push(jsonData[i].투자금변동률);
+                        drop_rate.push(jsonData[i].drop);
+                        bus_rate.push(jsonData[i].bus);
+                        school_rate.push(jsonData[i].school);
+                        high_price.push(jsonData[i].전고점);
+                        income_price.push(jsonData[i].수익금);
+                    }
+
+                    // 지도 초기화
+                    var container = document.getElementById('map');
+                    var options = {
+                        center: new kakao.maps.LatLng(37.5663, 126.9778),
+                        level: 3
+                    };
+                    map = new kakao.maps.Map(container, options);
+                    var geocoder = new kakao.maps.services.Geocoder();
+
+                    // 마커 클러스터러를 생성합니다 
+                    clusterer = new kakao.maps.MarkerClusterer({
+                        map: map, // 마커들을 클러스터로 관리하고 표시할 지도 객체 
+                        averageCenter: false, // 클러스터에 포함된 마커들의 평균 위치를 클러스터 마커 위치로 설정 
+                        minLevel: 10 // 클러스터 할 최소 지도 레벨 
+                    });
+
+                    // 마커를 생성하고 markers 배열에 추가한 후에 클릭 이벤트를 추가합니다.
+                    for (let i = 0; i < latitude.length; i++) {
+                        var markerPosition = new kakao.maps.LatLng(latitude[i], longitud[i]);
+
+                        // 마커 이미지 선택
+                        var markerImage = getMarkerImage(parseInt(sale_price[i] * 1, 10));
+
+                        // 마커를 생성합니다
+                        var marker = new kakao.maps.Marker({
+                            position: markerPosition,
+                            image: new kakao.maps.MarkerImage(markerImage, new kakao.maps.Size(32, 32))
+                        });
+
+                        marker.investment_amount = investment_amount[i];
+                        marker.sale_price = sale_price[i];
+
+
+                        // 마커 클릭 이벤트를 추가합니다.
+                        kakao.maps.event.addListener(marker, 'click', function () {
+                            // 클릭 시 마커의 활성/비활성 상태를 토글합니다.
+                            if (markers[i].infowindow.getMap()) {
+                                markers[i].infowindow.close(); // 인포윈도우를 닫습니다.
+                            } else {
+                                markers[i].infowindow.open(map, markers[i].marker); // 인포윈도우를 엽니다.
+                            }
+                        });
+
+                        // 인포윈도우를 생성하여 마커 위에 표시합니다
+                        var infowindow = new kakao.maps.InfoWindow({
+                            content: `
+                            <div style="padding:5px; width:250px; text-align:center; overflow:hidden;">
+    <div>
+        <strong>${apartment_complex_name[i]}</strong><br>
+        연식: ${apartment_completion_year[i]}년 / 평수: ${supply_area[i]}평
+    </div>
+    <div style="display: flex; justify-content: space-around; margin-top: 5px;">
+        <div style="padding: 2px 5px; background-color: ${getInfowindowColor(parseInt(sale_price[i] * 1, 10)).bgColor}; color: ${getInfowindowColor(parseInt(sale_price[i] * 1, 10)).textColor};">
+            ${sale_price[i]}
+        </div>
+        <div>
+            ${j_price[i]}(${(j_price[i]/sale_price[i]*100).toFixed(0)})
+        </div>
+        <div style="white-space: nowrap;">
+            ${investment_amount[i]}
+        </div>
+    </div>
+    <div style="display: flex; justify-content: space-around; margin-top: 5px;">
+        <div>
+             ${high_price[i]} / ${parseFloat(drop_rate[i]).toFixed(0)}
+        </div>
+        <div>
+             ${income_price[i]}(${((high_price[i]-sale_price[i])/investment_amount[i]*100).toFixed(0)})
+        </div>
+    </div>
+</div>
+
+                            `,
+                            disableAutoPan: true,
+                        });
+
+                        marker.infowindow = infowindow;
+
+                        // 클러스터 데이터 가공
+                        cluster_markers.push(marker);
+
+                        // 해당 평수의 마커와 인포 윈도우를 표시
+                        var year;
+                        if (today_year - parseInt(apartment_completion_year[i]) <= 5) {
+                            year = '5년';
+                        } else if (today_year - parseInt(apartment_completion_year[i]) > 5 && today_year - parseInt(apartment_completion_year[i]) <= 10) {
+                            year = '10년';
+                        } else if (today_year - parseInt(apartment_completion_year[i]) > 10 && today_year - parseInt(apartment_completion_year[i]) <= 15) {
+                            year = '15년';
+                        } else if (today_year - parseInt(apartment_completion_year[i]) > 15 && today_year - parseInt(apartment_completion_year[i]) <= 20) {
+                            year = '20년';
+                        } else if (today_year - parseInt(apartment_completion_year[i]) > 20 && today_year - parseInt(apartment_completion_year[i]) <= 25) {
+                            year = '25년';
+                        } else if (today_year - parseInt(apartment_completion_year[i]) > 25 && today_year - parseInt(apartment_completion_year[i]) <= 30) {
+                            year = '30년';
+                        } else {
+                            year = '31년';
+                        }
+
+                        // 해당 평수의 마커와 인포 윈도우를 표시
+                        var size;
+                        var parse_supply_area = parseInt(supply_area[i]);
+
+                        if (parse_supply_area < 10) {
+                            size = '10미만';
+                        } else if (parse_supply_area > 10 && parse_supply_area <= 15) {
+                            size = '10';
+                        } else if (parse_supply_area > 15 && parse_supply_area <= 23) {
+                            size = '15';
+                        } else if (parse_supply_area > 23 && parse_supply_area <= 28) {
+                            size = '20';
+                        } else if (parse_supply_area > 28 && parse_supply_area <= 30) {
+                            size = '28';
+                        } else if (parse_supply_area > 30 && parse_supply_area <= 35) {
+                            size = '30';
+                        } else if (parse_supply_area > 35 && parse_supply_area <= 40) {
+                            size = '35';
+                        } else if (parse_supply_area > 40 && parse_supply_area <= 45) {
+                            size = '40';
+                        } else {
+                            size = '40초과';
+                        }
+
+
+                        var roomstruct;
+
+                        if (room_structure[i] === '계') {
+                            roomstruct = '계단';
+                        } else if (room_structure[i] === '복') {
+                            roomstruct = '복도';
+                        } else if (room_structure[i] === '합') {
+                            roomstruct = '복합';
+                        } else {
+                            roomstruct = '기타';
+
+                        }
+
+
+                        var zeroprice;
+                        if (parseInt(sale_price[i]) === 0) {
+                            zeroprice = 'zero';
+                        } else {
+                            zeroprice = 'nonzero';
+                        }
+
+                        var roomCount = parseInt(room_count[i]);
+
+                        // 해당 세대수 마커와 인포 윈도우를 표시
+                        var householdsCountTemp = parseInt(households_count[i]);
+
+                        if (householdsCountTemp < 100) {
+                            householdsCountTemp = 0;
+                        } else if (householdsCountTemp >= 100 && householdsCountTemp <= 200) {
+                            householdsCountTemp = '100';
+                        } else if (householdsCountTemp > 200 && householdsCountTemp <= 300) {
+                            householdsCountTemp = '200';
+                        } else if (householdsCountTemp > 300 && householdsCountTemp <= 500) {
+                            householdsCountTemp = '300';
+                        } else if (householdsCountTemp > 500 && householdsCountTemp <= 700) {
+                            householdsCountTemp = '500';
+                        } else if (householdsCountTemp > 700 && householdsCountTemp <= 1000) {
+                            householdsCountTemp = '700';
+                        } else {
+                            householdsCountTemp = '1000';
+                        }
+
+                        // 변동률 상승/보합/하락 설정
+                        var sale_change_rate_result = Number(sale_change_rate[i]);
+
+                        if (sale_change_rate[i] > 0) {
+                            sale_change_rate_result = "상승";
+                        } else if (sale_change_rate[i] < 0) {
+                            sale_change_rate_result = "하락";
+                        } else {
+                            sale_change_rate_result = "보합";
+                        }
+
+                        // 변동률 상승/보합/하락 설정
+                        var j_change_rate_result = Number(j_change_rate[i]);
+
+                        if (j_change_rate[i] > 0) {
+                            j_change_rate_result = "상승";
+                        } else if (j_change_rate[i] < 0) {
+                            j_change_rate_result = "하락";
+                        } else {
+                            j_change_rate_result = "보합";
+                        }
+
+                        // 변동률 상승/보합/하락 설정
+                        var investment_change_rate_result = Number(investment_change_rate[i]);
+
+                        if (investment_change_rate[i] > 0) {
+                            investment_change_rate_result = "상승";
+                        } else if (investment_change_rate[i] < 0) {
+                            investment_change_rate_result = "하락";
+                        } else {
+                            investment_change_rate_result = "보합";
+                        }
+
+                        // 마커 정보를 markers 배열에 추가합니다.
+                        markers.push({
+                            marker: marker,
+                            drop_curr: drop_rate[i], // 또는 하락률
+                            bus_curr: bus_rate[i], // 또는 교통
+                            school_curr: school_rate[i], // 또는 교통
+                            js_curr: js_rate[i], // 또는 교통
+                            price: sale_price[i], // 또는 전세가격[i]
+                            J_price: j_price[i], // 전세가격 정보 추가
+                            gap_price: investment_amount[i], // 투자금 정보 추가
+                            year_apt: apartment_completion_year_period[i],
+                            gong_p: supply_area[i],
+                            jen_p: exclusive_area[i],
+                            roomC: room_count[i],
+                            roomstruct: roomstruct,
+                            years: apartment_completion_year[i],
+                            householdsCount: households_count[i],
+                            // 100 ~ 1000 세대 각 그룹핑
+                            householdsCountGroup: householdsCountTemp,
+                            cityposition: region[i],
+                            roomCount: roomCount,
+                            year: year,
+                            size: size,
+                            infowindow: infowindow,
+                            zeroprice: zeroprice,
+                            sale_change_rate: sale_change_rate[i],
+                            sale_change_rate_result: sale_change_rate_result,
+                            j_change_rate: j_change_rate[i],
+                            j_change_rate_result: j_change_rate_result,
+                            investment_change_rate: investment_change_rate[i],
+                            investment_change_rate_result: investment_change_rate_result,
+                            active: true
+                        });
+
+                        // 마커와 인포윈도우를 지도에 표시합니다.
+                        markers[i].marker.setMap(null); // 모든 마커 비활성화
+                        markers[i].active = false; // 모든 마커 활성화 상태로 설정
+                    }
+
+                    // 클러스터러에 마커들을 추가합니다
+                    createClusterMarker();
+
+                    // 클러스터 Text 커스터 마이징
+                    var style = "";
+                    // 클러스터 적용 될때 실행되는 이벤트
+                    kakao.maps.event.addListener(clusterer, 'clustered', function (clusters) {
+                        clusters.forEach(cluster => {
+                            let markers = cluster.getMarkers();
+                            var investment_amount_sale_price_count = 0;
+                            var cnt = 0
+                            markers.forEach(marker => {
+                                cnt++;
+                                // 투자금 1억이하 AND 매매금액 9억 이하일 경우 카운트
+                                marker.infowindow.close();
+                                if (marker.investment_amount < 10000 && marker.sale_price < 90000) {
+                                    investment_amount_sale_price_count++;
+                                }
+                            });
+                            if (investment_amount_sale_price_count != 0) {
+
+                                var content = "";
+                                // 지도 축소/확대 일 경우에는 if 문 조건 충족, 지도 이동 시에는 일반 텍스트 형태라 if 문 조건 충족하지 못함.
+                                if (cluster.getClusterMarker().getContent().style != undefined) {
+                                    style = cluster.getClusterMarker().getContent().style.cssText;
+                                    content = "<div style='" + style + "'><span style='color:red;''>" + investment_amount_sale_price_count + "</span></div>";
+                                } else {
+                                    content = cluster.getClusterMarker().getContent();
+                                }
+
+                                cluster.getClusterMarker().setContent(content);
+                            }
+                        });
+                    });
+
+                    // info window 활성화
+                    // toggleAllInfoWindows();
+                };
+
+                reader.readAsArrayBuffer(file);
+
+            });
+
+            function getMarkerImage(price) {
+                if (!isNaN(price)) {
+                    if (price == 0) {
+                        return 'https://cdn0.iconfinder.com/data/icons/seo-marketing-glyphs-vol-4/52/location__map__navigation__marker__Pin__GPS-512.png'; // black
+                    } else if (price < 50000) {
+                        return 'https://maps.gstatic.com/mapfiles/ms2/micons/green-dot.png'; // Yellow
+                    } else if (price >= 50000 && price < 60000) {
+                        return 'https://maps.gstatic.com/mapfiles/ms2/micons/blue-dot.png'; // Green
+                    } else if (price >= 60000 && price < 70000) {
+                        return 'https://maps.gstatic.com/mapfiles/ms2/micons/red-dot.png'; // Blue
+                    } else if (price >= 70000 && price < 80000) {
+                        return 'https://maps.gstatic.com/mapfiles/ms2/micons/yellow-dot.png'; // Pink
+                    } else if (price >= 80000 && price < 90000) {
+                        return 'https://cdn1.iconfinder.com/data/icons/web-mobile-ui-interface/90/favorite-01-512.png'; // Purple
+                    } else if (price >= 90000 && price < 100000) {
+                        return 'https://cdn0.iconfinder.com/data/icons/social-messaging-ui-color-shapes/128/favorite-circle-red-512.png'; // Red
+                    } else if (price >= 100000 && price < 110000) {
+                        return 'https://cdn0.iconfinder.com/data/icons/social-messaging-ui-color-shapes/128/favorite-circle-yellow-512.png'; // Orange
+                    } else if (price >= 110000 && price < 120000) {
+                        return 'https://cdn0.iconfinder.com/data/icons/social-messaging-ui-color-shapes/128/favorite-circle-blue-512.png'; // Orange
+                    } else {
+                        return 'https://cdn1.iconfinder.com/data/icons/location-colors/91/Location_25-512.png'; // Default
+                    }
+                } else {
+                    return 'https://maps.gstatic.com/mapfiles/ms2/micons/purple-dot.png'; // Default
+                }
+            }
+
+            // 인포윈도우 배경색을 반환하는 함수
+            function getInfowindowColor(price) {
+                if (!isNaN(price)) {
+                    if (price < 50000) { // 5만 원 미만
+                        return { bgColor: '#FFFFFF', textColor: '#005400' }; // White background with green text
+                    } else if (price >= 50000 && price < 60000) { // 5~6만 원
+                        return { bgColor: '#FFFFFF', textColor: '#0000FF' }; // White background with blue text
+                    } else if (price >= 60000 && price < 70000) { // 6~7만 원
+                        return { bgColor: '#FFFFFF', textColor: '#FF0000' }; // White background with red text
+                    } else if (price >= 70000 && price < 80000) { // 7~8만 원
+                        return { bgColor: '#FFFFFF', textColor: '#FFA500' }; // White background with orange text
+                    } else if (price >= 80000 && price < 90000) { // 8~9만 원
+                        return { bgColor: '#4CAF50', textColor: '#FFFFFF' }; // Green background with white text
+                    } else if (price >= 90000 && price < 100000) { // 9~10만 원
+                        return { bgColor: '#FF6666', textColor: '#FFFFFF' }; // Blue background with white text
+                    } else if (price >= 100000 && price < 110000) { // 10~11만 원
+                        return { bgColor: '#FFA500', textColor: '#FFFFFF' }; // Light red background with white text
+                    } else if (price >= 110000 && price < 120000) { // 11~12만 원
+                        return { bgColor: '#1565C0', textColor: '#FFFFFF' }; // Light orange background with white text
+                    } else { // 12만 원 이상
+                        return { bgColor: '#9370DB', textColor: '#FFFFFF' }; // Light purple background with white text
+                    }
+                } else {
+                    return { bgColor: '#000000', textColor: '#FFFFFF' }; // Black (default)
+                }
+            }
+
+            // 마커와 인포윈도우를 토글하는 함수
+            function toggleMarkers(size) {
+
+                var button = document.getElementById('btn' + size);
+                var isActive = button.classList.contains('active');
+                if (size == "40초과") {
+
+                    size = "40초과";
+                }
+                // 버튼의 활성/비활성 상태 변경
+                if (isActive) {
+                    button.classList.remove('active');
+                    button.classList.add('disabled');
+                } else {
+                    button.classList.remove('disabled');
+                    button.classList.add('active');
+                }
+
+                // 공통 필터로 변경
+                applyCommonFilter();
+            }
+
+
+            // room 구조에 따라서 결정
+            // 마커와 인포윈도우를 토글하는 함수
+            function toggleMarkersBystructCount(roomstruct) {
+                var button = document.getElementById('btn' + roomstruct);
+                var isActive = button.classList.contains('active');
+
+                // 버튼의 활성/비활성 상태 변경
+                if (isActive) {
+                    button.classList.remove('active');
+                    button.classList.add('disabled');
+                } else {
+                    button.classList.remove('disabled');
+                    button.classList.add('active');
+                }
+
+                // 공통 필터로 변경
+                applyCommonFilter();
+            }
+
+            // 마커와 인포윈도우를 토글하는 함수
+            function zeroMarkers(zeroprice) {
+                var button = document.getElementById('btn' + zeroprice);
+                var isActive = button.classList.contains('active');
+                // 버튼의 활성/비활성 상태 변경
+                if (isActive) {
+                    button.classList.remove('active');
+                    button.classList.add('disabled');
+                } else {
+                    button.classList.remove('disabled');
+                    button.classList.add('active');
+                }
+
+                // 공통 필터로 변경
+                applyCommonFilter();
+            }
+
+            // 마커와 인포윈도우를 토글하는 함수 year함수로
+            function toggleMarkersyear(year) {
+                var button = document.getElementById('btn' + year);
+                var isActive = button.classList.contains('active');
+
+                // 버튼의 활성/비활성 상태 변경
+                if (isActive) {
+                    button.classList.remove('active');
+                    button.classList.add('disabled');
+                } else {
+                    button.classList.remove('disabled');
+                    button.classList.add('active');
+                }
+
+                // 공통 필터로 변경
+                applyCommonFilter();
+            }
+
+            // 마커와 인포윈도우를 토글하는 함수 year함수로
+            function toggleMarkersByHouseholdsCount(householdsCount) {
+                var button = document.getElementById('households_btn_' + householdsCount);
+                var isActive = button.classList.contains('active');
+
+                // 버튼의 활성/비활성 상태 변경
+                if (isActive) {
+                    button.classList.remove('active');
+                    button.classList.add('disabled');
+                } else {
+                    button.classList.remove('disabled');
+                    button.classList.add('active');
+                }
+
+                // 공통 필터로 변경
+                applyCommonFilter();
+            }
+
+            // 페이지가 로드될 때 초기 상태로 모든 마커와 인포윈도우를 표시하고 버튼 색상을 변경
+            window.onload = function () {
+                for (var i = 0; i < markers.length; i++) {
+                    markers[i].marker.setMap(map);
+                    markers[i].infowindow.open(map, markers[i].marker);
+                    document.getElementById('btn' + markers[i].size).classList.add('active');
+                }
+            };
+
+            function resetButtonColor() {
+                // 모든 버튼 가져오기
+                var buttons = document.querySelectorAll('.room-filter-container button');
+                // 모든 버튼에 대해 작업 수행
+                buttons.forEach(function (button) {
+                    // 활성화/비활성화 클래스 제거
+                    button.classList.remove('active');
+                    button.classList.remove('disabled');
+                    // 색상 초기화
+                    button.style.backgroundColor = ''; // 색상 초기화
+                });
+            }
+
+
+            function resetMarkers() {
+                for (var i = 0; i < markers.length; i++) {
+                    markers[i].marker.setMap(null); // 모든 마커 표시
+                    markers[i].infowindow.close(); //  클러스터 그리기 전 모든 인포 윈도우 닫기 
+                    markers[i].active = true; // 모든 마커 활성화 상태로 설정
+
+                    resetButtonColor();
+                }
+
+                // 클러스터 Marker 셋팅
+                createClusterMarker();
+                // 클러스터 Marker 셋팅 후 info window 열기
+                // toggleAllInfoWindows();
+
+                // 토큰 초기화
+                // document.getElementById('minPrice').value = '';
+                // document.getElementById('maxPrice').value = '';
+                document.getElementById('minSalePrice').value = '';
+                document.getElementById('maxSalePrice').value = '';
+                document.getElementById('minJeonsaePrice').value = '';
+                document.getElementById('maxJeonsaePrice').value = '';
+                document.getElementById('minInvestmentPrice').value = '';
+                document.getElementById('maxInvestmentPrice').value = '';
+                document.getElementById('minSize').value = '';
+                document.getElementById('maxSize').value = '';
+                document.getElementById('minYear').value = '';
+                document.getElementById('maxYear').value = '';
+                document.getElementById('minHouseholds').value = '';
+                document.getElementById('maxHouseholds').value = '';
+                $("#sale_change_rate_result").val("").change();
+                $("#j_change_rate_result").val("").change();
+                $("#investment_change_rate_result").val("").change();
+                priceFilterEnabled = false;
+
+                // 년수 토큰 초기화
+                var yearTokens = ['5년', '10년', '15년', '20년', '25년', '30년', '31년'];
+                for (var j = 0; j < yearTokens.length; j++) {
+                    document.getElementById('btn' + yearTokens[j]).classList.remove('disabled');
+                    document.getElementById('btn' + yearTokens[j]).classList.add('active');
+                }
+
+                // 평수 토큰 초기화
+                var sizeTokens = ['10미만', '10', '15', '20', '28', '30', '35', '40', '40초과'];
+                for (var k = 0; k < sizeTokens.length; k++) {
+                    document.getElementById('btn' + sizeTokens[k]).classList.remove('disabled');
+                    document.getElementById('btn' + sizeTokens[k]).classList.add('active');
+                }
+
+                // 방수 토큰 초기화
+                var roomTokens = ['1', '2', '3', '4', '5', 'zero', '계단', '복도', '복합'];
+                for (var l = 0; l < roomTokens.length; l++) {
+                    document.getElementById('btn' + roomTokens[l]).classList.remove('disabled');
+                    document.getElementById('btn' + roomTokens[l]).classList.add('active');
+                };
+
+                // 세대수 토큰 초기화
+                var householdsTokens = ['0', '100', '200', '300', '500', '700', '1000'];
+                for (var l = 0; l < roomTokens.length; l++) {
+                    // document.getElementById('households_btn_' + householdsTokens[l]).classList.remove('disabled');
+                    $("#households_btn_" + householdsTokens[l]).removeClass("disabled");
+                    // document.getElementById('households_btn_' + householdsTokens[l]).classList.add('active');
+                    $("#households_btn_" + householdsTokens[l]).addClass("active");
+                };
+            };
+        };
+
+
+        // 모든 인포윈도우를 열거나 닫는 함수
+        function toggleAllInfoWindows() {
+            showSpinner();
+            setTimeout(() => {
+                var allClosed = true; // 모든 인포윈도우가 닫혀있는지 확인하기 위한 플래그
+
+                // 모든 인포윈도우의 상태 확인
+                for (var i = 0; i < markers.length; i++) {
+                    if (markers[i].infowindow.getMap()) {
+                        allClosed = false; // 하나라도 열려있다면 플래그를 false로 설정하고 반복문 종료
+                        break;
+                    }
+                }
+
+                // 모든 인포윈도우 상태에 따라 열고 닫기
+                for (var i = 0; i < markers.length; i++) {
+                    if (allClosed) {
+                        // 모든 인포윈도우가 닫혀있는 경우 모두 열기
+                        if (markers[i].marker.getMap() != null) {
+                            markers[i].infowindow.open(map, markers[i].marker);
+                        }
+                    } else {
+                        // 모든 인포윈도우가 열려있는 경우 모두 닫기
+                        markers[i].infowindow.close();
+                    }
+                }
+                hideSpinner();
+            })
+        }
+
+        // 모든 마커를 열거나 닫는 함수
+        function toggleAllMarker() {
+            var action = $(this).attr("action");
+            if (action == "OFF" || action == undefined) {
+                for (var i = 0; i < markers.length; i++) {
+                    markers[i].marker.setMap(map); // 모든 마커 표시
+                    markers[i].active = true;
+                    markers[i].infowindow.close();
+                }
+                $(this).attr("action", "ON")
+            } else {
+                for (var i = 0; i < markers.length; i++) {
+                    markers[i].marker.setMap(null); // 모든 마커 표시
+                    markers[i].active = false;
+                    markers[i].infowindow.close();
+                }
+                $(this).attr("action", "OFF")
+            }
+
+            // 클러스터 마커도 적용
+            createClusterMarker();
+        }
+
+        // HTML 버튼과 연결된 함수
+        function toggleMarkersByRoomCount(roomCount) {
+            var button = document.getElementById('btn' + roomCount);
+            var isActive = button.classList.contains('active');
+
+            // 버튼의 활성/비활성 상태 변경
+            if (isActive) {
+                button.classList.remove('active');
+                button.classList.add('disabled');
+
+            } else {
+                button.classList.remove('disabled');
+                button.classList.add('active');
+            }
+
+            // 공통 필터로 변경
+            applyCommonFilter();
+        }
+
+        function applyRegionFilter() {
+            const input = document.getElementById('regionFilter').value;
+            const filterRegions = input.split(',').map(region => region.trim().toLowerCase()); // 대소문자 구분을 없애기 위해 소문자로 변환
+            var cluster_list = [];
+
+            // 기존 마커 제거
+            markers.forEach(marker => {
+                marker.marker.setMap(null);
+                marker.infowindow.close();
+            });
+
+            // 필터링된 데이터를 기반으로 마커 생성
+            let count = 0;  // 필터링된 마커의 수를 세기 위한 카운터
+            markers.forEach(data => {
+                // 부분 문자열 검사를 포함하여 필터 적용
+                if (filterRegions.some(region => data.cityposition.toLowerCase().includes(region))) {
+                    data.marker.setMap(map);
+                    data.infowindow.close(map, data.marker);
+                    count++;  // 필터에 맞는 마커일 때마다 카운트 증가
+                }
+            });
+            // 클러스터 셋팅
+            createClusterMarker();
+            // 필터링된 마커의 수를 알림으로 표시
+            //alert("필터링된 매물의 수: " + count + "개");
+        }
+
+        function searchMarkers() {
+            applyCommonFilter();
+        }
+
+
+        // AND 관계 필요 필터
+        function applyCommonFilter() {
+            var minSize = parseInt(document.getElementById('minSize').value);
+            var maxSize = parseInt(document.getElementById('maxSize').value);
+            var minYear = parseInt(document.getElementById('minYear').value); // 최소 연도 값 가져오기
+            var maxYear = parseInt(document.getElementById('maxYear').value); // 최대 연도 값 가져오기
+            var minbus = parseInt(document.getElementById('minbus').value);
+            var maxbus = parseInt(document.getElementById('maxbus').value);
+            var minschool = parseInt(document.getElementById('minschool').value);
+            var maxschool = parseInt(document.getElementById('maxschool').value);
+            var minjs = parseInt(document.getElementById('minjs').value);
+            var maxjs = parseInt(document.getElementById('maxjs').value);
+            var mindropprice = parseInt(document.getElementById('mindropprice').value);
+            var maxdropprice = parseInt(document.getElementById('maxdropprice').value);
+            var minSalePrice = parseInt(document.getElementById('minSalePrice').value);
+            var maxSalePrice = parseInt(document.getElementById('maxSalePrice').value);
+            var minJeonsaePrice = parseInt(document.getElementById('minJeonsaePrice').value);
+            var maxJeonsaePrice = parseInt(document.getElementById('maxJeonsaePrice').value);
+            var minInvestmentPrice = parseInt(document.getElementById('minInvestmentPrice').value);
+            var maxInvestmentPrice = parseInt(document.getElementById('maxInvestmentPrice').value);
+            var minHouseholds = parseInt(document.getElementById('minHouseholds').value);
+            var maxHouseholds = parseInt(document.getElementById('maxHouseholds').value);
+            var regionFilter = $("#regionFilter").val();
+            var size_array = []; // 체크된 사이즈 배열
+            var year_array = [];
+            var households_array = [];
+            var room_array = [];
+            var struct_array = [];
+            var zero = false;
+
+
+            sizeType = document.getElementById('sizeType').value; // 선택된 평수 유형 가져오기
+            // priceType = document.getElementById('priceType').value; // 선택된 가격 유형 가져오기
+
+            // Blue Button Filter 처리
+            // 평수
+            for (var j = 0; j < $(".sizeFilter").length; j++) {
+                var size = $(".sizeFilter").eq(j).attr("type");
+                var isActive = $(".sizeFilter").eq(j).hasClass("active");
+                if (!isActive) {
+                    size_array.push(size);
+                }
+            }
+
+            // 연식
+            for (var j = 0; j < $(".yearFilter").length; j++) {
+                var year = $(".yearFilter").eq(j).attr("type");
+                var isActive = $(".yearFilter").eq(j).hasClass("active");
+                if (!isActive) {
+                    year_array.push(year);
+                }
+            }
+
+            // 총세대
+            for (var j = 0; j < $(".householdsFilter").length; j++) {
+                var householdsCount = $(".householdsFilter").eq(j).attr("type");
+                var isActive = $(".householdsFilter").eq(j).hasClass("active");
+                if (!isActive) {
+                    households_array.push(householdsCount);
+                }
+            }
+
+            // 방개수
+            for (var j = 0; j < $(".roomFilter").length; j++) {
+                var roomCount = $(".roomFilter").eq(j).attr("type");
+                var isActive = $(".roomFilter").eq(j).hasClass("active");
+                if (!isActive) {
+                    room_array.push(parseInt(roomCount));
+                }
+            }
+
+            // 계단/복도/복합
+            for (var j = 0; j < $(".structFilter").length; j++) {
+                var roomstruct = $(".structFilter").eq(j).attr("type");
+                var isActive = $(".structFilter").eq(j).hasClass("active");
+                if (!isActive) {
+                    struct_array.push(roomstruct);
+                }
+            }
+
+            // zero 
+            var isActive = $("#btnzero").hasClass("active");
+            if (!isActive) {
+                zero = true
+            }
+
+            showSpinner();
+            setTimeout(() => {
+                // 적용 필터에 적혀 있으면 if 문 실행
+                if (regionFilter != "") {
+                    const input = document.getElementById('regionFilter').value;
+                    const filterRegions = input.split(',').map(region => region.trim().toLowerCase()); // 대소문자 구분을 없애기 위해 소문자로 변환
+                    var cluster_list = [];
+
+                    // 기존 마커 제거
+                    markers.forEach(marker => {
+                        marker.marker.setMap(null);
+                        marker.infowindow.close();
+                    });
+
+                    // 필터링된 데이터를 기반으로 마커 생성
+                    let count = 0;  // 필터링된 마커의 수를 세기 위한 카운터
+                    markers.forEach(data => {
+                        // 부분 문자열 검사를 포함하여 필터 적용
+                        if (filterRegions.some(region => data.cityposition.toLowerCase().includes(region))) {
+                            data.marker.setMap(map);
+                            data.infowindow.close(map, data.marker);
+                            count++;  // 필터에 맞는 마커일 때마다 카운트 증가
+                        }
+                    });
+                } else {
+                    // 전체 리셋
+                    for (var i = 0; i < markers.length; i++) {
+                        markers[i].marker.setMap(map); // 모든 마커 표시
+                        markers[i].infowindow.open(map, markers[i].marker); // 모든 인포 윈도우 열기
+                        markers[i].active = true; // 모든 마커 활성화 상태로 설정
+
+                        resetButtonColor();
+                    }
+                }
+
+                for (var i = 0; i < markers.length; i++) {
+                    var size;
+                    if (sizeType === '공급평수') {
+                        size = parseInt(markers[i].gong_p); // 공급평수 정보 가져오기
+                    } else if (sizeType === '전용평수') {
+                        size = parseInt(markers[i].jen_p); // 전용평수 정보 가져오기
+                    } else {
+                        // 다른 평수 유형일 경우 처리
+                        continue;
+                    }
+
+
+                    var householdsCount = parseInt(markers[i].householdsCount); // 마커의 연도 정보 가져오기
+                    var year = parseInt(markers[i].years); // 마커의 연도 정보 가져오기
+                    var sale_change_rate_result = markers[i].sale_change_rate_result;
+                    var j_change_rate_result = markers[i].j_change_rate_result;
+                    var investment_change_rate_result = markers[i].investment_change_rate_result;
+                    var drop_curr_t = parseInt(markers[i].drop_curr); // 하락
+                    var bus_curr_t = parseInt(markers[i].bus_curr); // 하락
+                    var school_curr_t = parseInt(markers[i].school_curr); // 하락
+                    var js_curr_t = parseInt(markers[i].js_curr); // 하락
+                    var salePrice = parseInt(markers[i].price); // 매매
+                    var jeonsaePrice = parseInt(markers[i].J_price); // 전세
+                    var investmentPrice = parseInt(markers[i].gap_price); // 투자금
+
+
+                    // 선택 변동률 정보 가져오기
+                    var sale_change_rate_result_input = $("#sale_change_rate_result").val();
+                    var j_change_rate_result_input = $("#j_change_rate_result").val();
+                    var investment_change_rate_result_input = $("#investment_change_rate_result").val();
+
+                    // 평수 필터
+                    if (!isNaN(size)) {
+                        // 최소 평수 미만이거나 최대 평수를 초과하는 경우 해당 마커 숨기기
+                        if ((minSize && size < minSize) || (maxSize && size > maxSize)) {
+                            markers[i].marker.setMap(null);
+                            markers[i].active = false;
+                        } else {
+                            if (markers[i].marker.getMap() != null) {
+                                // 해당 평수 범위에 포함되는 경우 해당 마커 표시
+                                markers[i].marker.setMap(map);
+                                markers[i].active = true;
+                            }
+                        }
+                    }
+
+                    // 연식 필터
+                    if (!isNaN(year)) {
+                        // 최소 연도와 최대 연도 사이에 있는 경우에만 마커를 표시
+                        if ((isNaN(minYear) || year >= minYear) && (isNaN(maxYear) || year <= maxYear)) {
+                            if (markers[i].marker.getMap() != null) {
+                                markers[i].marker.setMap(map);
+                                markers[i].active = true;
+                            }
+                        } else {
+                            markers[i].marker.setMap(null);
+                            markers[i].active = false;
+                        }
+                    }
+
+                    // 하락률 필터
+                    if (!isNaN(drop_curr_t)) {
+                        if ((isNaN(mindropprice) || drop_curr_t >= mindropprice) && (isNaN(maxdropprice) || drop_curr_t <= maxdropprice)) {
+                            if (markers[i].marker.getMap() != null) {
+                                markers[i].marker.setMap(map);
+                                markers[i].active = true;
+                            }
+                        } else {
+                            markers[i].marker.setMap(null);
+                            markers[i].active = false;
+                        }
+                    }
+
+                    //교통
+                    if (!isNaN(bus_curr_t)) {
+                        if ((isNaN(minbus) || bus_curr_t >= minbus) && (isNaN(maxbus) || bus_curr_t <= maxbus)) {
+                            if (markers[i].marker.getMap() != null) {
+                                markers[i].marker.setMap(map);
+                                markers[i].active = true;
+                            }
+                        } else {
+                            markers[i].marker.setMap(null);
+                            markers[i].active = false;
+                        }
+                    }
+
+                    //학군
+                    if (!isNaN(school_curr_t)) {
+                        if ((isNaN(minschool) || school_curr_t >= minschool) && (isNaN(maxschool) || school_curr_t <= maxschool)) {
+                            if (markers[i].marker.getMap() != null) {
+                                markers[i].marker.setMap(map);
+                                markers[i].active = true;
+                            }
+                        } else {
+                            markers[i].marker.setMap(null);
+                            markers[i].active = false;
+                        }
+                    }
+
+
+                    //전세가율
+                    if (!isNaN(js_curr_t)) {
+                        if ((isNaN(minjs) || js_curr_t >= minjs) && (isNaN(maxjs) || js_curr_t <= maxjs)) {
+                            if (markers[i].marker.getMap() != null) {
+                                markers[i].marker.setMap(map);
+                                markers[i].active = true;
+                            }
+                        } else {
+                            markers[i].marker.setMap(null);
+                            markers[i].active = false;
+                        }
+                    }                    
+
+
+
+
+                    // 매매가격 필터
+                    if (!isNaN(salePrice)) {
+                        if ((isNaN(minSalePrice) || salePrice >= minSalePrice) && (isNaN(maxSalePrice) || salePrice <= maxSalePrice)) {
+                            if (markers[i].marker.getMap() != null) {
+                                markers[i].marker.setMap(map);
+                                markers[i].active = true;
+                            }
+                        } else {
+                            markers[i].marker.setMap(null);
+                            markers[i].active = false;
+                        }
+                    }
+
+                    // 전세가격 필터
+                    if (!isNaN(jeonsaePrice)) {
+                        if ((isNaN(minJeonsaePrice) || jeonsaePrice >= minJeonsaePrice) && (isNaN(maxJeonsaePrice) || jeonsaePrice <= maxJeonsaePrice)) {
+                            if (markers[i].marker.getMap() != null) {
+                                markers[i].marker.setMap(map);
+                                markers[i].active = true;
+                            }
+                        } else {
+                            markers[i].marker.setMap(null);
+                            markers[i].active = false;
+                        }
+                    }
+
+                    // 투자금 필터
+                    if (!isNaN(investmentPrice)) {
+                        if ((isNaN(minInvestmentPrice) || investmentPrice >= minInvestmentPrice) && (isNaN(maxInvestmentPrice) || investmentPrice <= maxInvestmentPrice)) {
+                            if (markers[i].marker.getMap() != null) {
+                                markers[i].marker.setMap(map);
+                                markers[i].active = true;
+                            }
+                        } else {
+                            markers[i].marker.setMap(null);
+                            markers[i].active = false;
+                        }
+                    }
+
+                    // 총 세대수 필터
+                    if (!isNaN(householdsCount)) {
+                        if ((isNaN(minHouseholds) || householdsCount >= minHouseholds) && (isNaN(maxHouseholds) || householdsCount <= maxHouseholds)) {
+                            if (markers[i].marker.getMap() != null) {
+                                markers[i].marker.setMap(map);
+                                markers[i].active = true;
+                            }
+                        } else {
+                            markers[i].marker.setMap(null);
+                            markers[i].active = false;
+                        }
+                    }
+
+                    // 변동률 필터
+                    // 매매가
+                    if (sale_change_rate_result_input != '') {
+                        if (sale_change_rate_result == sale_change_rate_result_input) {
+                            if (markers[i].marker.getMap() != null) {
+                                markers[i].marker.setMap(map);
+                                markers[i].active = true;
+                            }
+                        } else {
+                            markers[i].marker.setMap(null);
+                            markers[i].active = false;
+                        }
+                    }
+
+                    // 전세가
+                    if (j_change_rate_result_input != '') {
+                        if (j_change_rate_result == j_change_rate_result_input) {
+                            if (markers[i].marker.getMap() != null) {
+                                markers[i].marker.setMap(map);
+                                markers[i].active = true;
+                            }
+                        } else {
+                            markers[i].marker.setMap(null);
+                            markers[i].active = false;
+                        }
+                    }
+
+                    // 투자금
+                    if (investment_change_rate_result_input != '') {
+                        if (investment_change_rate_result == investment_change_rate_result_input) {
+                            if (markers[i].marker.getMap() != null) {
+                                markers[i].marker.setMap(map);
+                                markers[i].active = true;
+                            }
+                        } else {
+                            markers[i].marker.setMap(null);
+                            markers[i].active = false;
+                        }
+                    }
+
+                    // Blue Button Filter 처리
+                    // 평수
+                    if (size_array.includes(markers[i].size)) {
+                        markers[i].marker.setMap(null);
+                        markers[i].active = false;
+                    }
+
+                    // 연식
+                    if (year_array.includes(markers[i].year)) {
+                        markers[i].marker.setMap(null);
+                        markers[i].active = false;
+                    }
+
+                    // 총세대
+                    if (households_array.includes(markers[i].householdsCountGroup)) {
+                        markers[i].marker.setMap(null);
+                        markers[i].active = false;
+                    }
+
+                    // 방개수
+                    if (room_array.includes(markers[i].roomCount)) {
+                        markers[i].marker.setMap(null);
+                        markers[i].active = false;
+                    }
+
+                    // 계단/복도/복합
+                    if (struct_array.includes(markers[i].roomstruct)) {
+                        markers[i].marker.setMap(null);
+                        markers[i].active = false;
+                    }
+
+                    // zero 
+                    if (zero) {
+                        if (markers[i].zeroprice === "zero") {
+                            markers[i].marker.setMap(null);
+                            markers[i].active = false;
+                        }
+                    }
+
+                    markers[i].infowindow.close();
+                }
+
+                createClusterMarker();
+                // 클러스터 Marker 셋팅 후 info window 열기
+                // toggleAllInfoWindows();
+                hideSpinner();
+            })
+
+
+        }
+
+        // 클러스터 생성 -> 클러스터 계속 리프레쉬 하지 않으면 이전 필터 전 내역들이 마커로 생성됨.
+        function createClusterMarker() {
+            var cluster_list = []
+            for (var i = 0; i < markers.length; i++) {
+                if (markers[i].marker.getMap() != null) {
+                    cluster_list.push(markers[i].marker);
+                }
+            }
+            clusterer.clear();
+            clusterer.addMarkers(cluster_list);
+        }
+
+        function showSpinner() {
+            document.getElementsByClassName('layerPopup')[0].style.display = 'block';
+        }
+        function hideSpinner() {
+            document.getElementsByClassName('layerPopup')[0].style.display = 'none';
+        }
+
+        // 토글 버튼 숨기기
+        function toggleDisabled() {
+            var action = $(this).attr("action");
+            if (action == "OFF" || action == undefined) {
+                $("#toggleBtnArea").css("display", "none");
+                $(this).attr("action", "ON")
+            } else {
+                $("#toggleBtnArea").css("display", "");
+                $(this).attr("action", "OFF")
+            }
+        }
+
+
+
+
+
+    </script>
+
+
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-7147018686687614"
+     crossorigin="anonymous"></script>
+<!-- 광고 -->
+<ins class="adsbygoogle"
+     style="display:block"
+     data-ad-client="ca-pub-7147018686687614"
+     data-ad-slot="9618974377"
+     data-ad-format="auto"
+     data-full-width-responsive="true"></ins>
+<script>
+     (adsbygoogle = window.adsbygoogle || []).push({});
+</script>
+
+</body>
+
+
+
+
+
+</html>
